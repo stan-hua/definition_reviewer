@@ -39,6 +39,10 @@ def label(i, sentence, plain):
     return "Detail"
 
 
+def is_general(q):
+    return q["id"].startswith("any_")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("yaml_path")
@@ -69,6 +73,8 @@ def main():
                 "exclude_terms": q.get("exclude_terms") or [],
                 "severity_scale": q.get("severity_scale"),
             })
+        # Show the compartment-general question ("Is there any abnormality of ...?") first.
+        qs.sort(key=lambda q: not is_general(q))
         cats.append({
             "name": name,
             "description": c.get("description", ""),
