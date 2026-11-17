@@ -222,6 +222,16 @@ do $$ begin
   begin alter publication supabase_realtime add table public.pocus_ratings; exception when duplicate_object then null; end;
 end $$;
 
+-- "Mark as reviewed" requires both POCUS answers (also in upgrades/003).
+drop policy if exists "reviews_insert" on public.reviews;
+create policy "reviews_insert" on public.reviews for insert to authenticated
+  with check (
+    user_id = auth.uid() and public.is_reviewer()
+    and (select count(distinct p.question) from public.pocus_ratings p
+         where p.user_id = auth.uid() and p.qid = reviews.qid
+           and p.question in ('visible', 'inferrable')) = 2
+  );
+
 -- ---------------------------------------------------------------
 -- Make yourself the first admin. Replace the address, then run this line.
 -- ---------------------------------------------------------------

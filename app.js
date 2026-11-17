@@ -143,7 +143,9 @@ function fillDynamic(qid){
   card.querySelector('.notes').innerHTML=tops.map(n=>noteHTML(n,ns)).join('');
   const rv=reviewers(qid), mine=iReviewed(qid), openN=tops.filter(n=>n.status!=='resolved').length;
   let f='';
-  if(canSave()) f+='<button class="revbtn'+(mine?' on':'')+'" data-act="review" data-q="'+esc(qid)+'">'+(mine?'Reviewed by you':'Mark as reviewed')+'</button>';
+  if(canSave()){ const ready=mine||pocusDone(qid);
+    f+='<button class="revbtn'+(mine?' on':'')+'" data-act="review" data-q="'+esc(qid)+'"'+(ready?'':' disabled title="Answer both POCUS questions above first"')+'>'+(mine?'Reviewed by you':'Mark as reviewed')+'</button>';
+    if(!ready) f+='<span class="hint">Answer both POCUS questions to mark as reviewed</span>'; }
   if(S.isReviewer){
     f+='<span>'+(rv.length?'Reviewed by '+rv.map(u=>esc(name(u))).join(', '):'Not yet reviewed')+'</span>';
     f+='<span>·</span><span>'+(tops.length?openN+' open, '+(tops.length-openN)+' resolved':'No notes')+'</span>';
@@ -181,6 +183,7 @@ function pocusHTML(qid){
   h+='<div class="hint">'+(S.isAdmin?'<span class="tag">admin only</span> You see every reviewer’s answers; reviewers see only their own.':'Blinded: other reviewers can’t see your answers.')+'</div>';
   return h+'</div>';
 }
+function pocusDone(qid){ return S.pocusOK&&PQS.every(pq=>myPocusRow(qid,pq.k)); }
 function pstatEl(qid,k){ return document.querySelector('.pstat[data-q="'+CSS.escape(qid)+'"][data-k="'+k+'"]'); }
 function putPocus(row){ const i=S.pocus.findIndex(x=>x.qid===row.qid&&pqOf(x)===pqOf(row)&&x.user_id===row.user_id); if(i>-1) S.pocus[i]=row; else S.pocus.push(row); }
 async function setPocus(qid,k,v){
@@ -283,6 +286,7 @@ async function deleteNote(key){
 }
 async function toggleReview(qid){
   const mine=iReviewed(qid);
+  if(!mine&&!pocusDone(qid)) return showBanner('Answer both POCUS questions for this finding before marking it as reviewed.','warn');
   const res = mine ? await S.sb.from('reviews').delete().eq('user_id',S.me.id).eq('qid',qid)
                    : await S.sb.from('reviews').upsert({user_id:S.me.id,qid},{onConflict:'user_id,qid',ignoreDuplicates:true});
   if(res.error) return showBanner('Could not save your review mark: '+res.error.message,'warn');

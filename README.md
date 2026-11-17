@@ -79,7 +79,7 @@ Each finding asks two questions on a 1–5 scale (1 Very unlikely, 2 Unlikely, 3
 - **Visible on abdominal POCUS (from FAST exam)?**
 - **Inferrable from abdominal POCUS (from FAST exam)?**
 
-After choosing a rating, reviewers can add an optional reason (for example "only if it is severe"). Reviewers see only their own answers; admins see everyone's reasons under each finding and get all ratings, counts and means in **Download review progress** (columns prefixed `visible_` and `inferrable_`). The database enforces the blinding. An answer can be changed but not cleared.
+After choosing a rating, reviewers can add an optional reason (for example "only if it is severe"). Reviewers see only their own answers; admins see everyone's reasons under each finding and get all ratings, counts and means in **Download review progress** (columns prefixed `visible_` and `inferrable_`). The database enforces the blinding. An answer can be changed but not cleared. **Mark as reviewed** stays disabled until both POCUS questions are answered for that finding (also enforced by the database).
 
 Projects set up before these features need the files in `upgrades/` run once each, in order, in the SQL Editor (they are already included in `schema.sql` for new projects).
 
