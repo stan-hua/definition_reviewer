@@ -230,7 +230,7 @@ async function toggleReview(qid){
   const res = mine ? await S.sb.from('reviews').delete().eq('user_id',S.me.id).eq('qid',qid)
                    : await S.sb.from('reviews').upsert({user_id:S.me.id,qid},{onConflict:'user_id,qid',ignoreDuplicates:true});
   if(res.error) return showBanner('Could not save your review mark: '+res.error.message,'warn');
-  if(mine) S.reviews=S.reviews.filter(r=>!(r.qid===qid&&r.user_id===S.me.id)); else S.reviews.push({user_id:S.me.id,qid});
+  if(mine) S.reviews=S.reviews.filter(r=>!(r.qid===qid&&r.user_id===S.me.id)); else S.reviews.push({user_id:S.me.id,qid,reviewed_at:new Date().toISOString()});
   refreshAll();
 }
 
@@ -260,7 +260,7 @@ function renderNotes(){
      '<select data-nf="type"><option value="">Any issue type</option>'+TYPES.map(t=>'<option'+(f.type===t?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select>'+
      '<select data-nf="cat"><option value="">Any category</option>'+CATS.map((c,i)=>'<option value="'+i+'"'+(f.cat===String(i)?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select>'+
      '<select data-nf="who"><option value="">Any reviewer</option>'+uids.map(u=>'<option value="'+esc(u)+'"'+(f.who===u?' selected':'')+'>'+esc(name(u))+'</option>').join('')+'</select>'+
-     '<span style="flex:1"></span><button class="btn" data-act="csv">Download CSV</button></div>';
+     '<span style="flex:1"></span><button class="btn" data-act="csv" title="Notes and replies matching the filters">Download notes CSV</button><button class="btn" data-act="csvprog" title="One row per finding: who reviewed it and its note counts">Download review progress</button></div>';
   const rows=filteredNotes();
   if(!rows.length) h+='<div class="empty">'+(tops.length?'No notes match these filters.':'No notes yet. In Browse, hover over any part of a finding and click its flag, or click a term.')+'</div>';
   else {
@@ -275,16 +275,32 @@ function renderNotes(){
   if(S.isAdmin) h+=adminHTML();
   $('#wrap').innerHTML=h;
 }
+function realName(uid){ return S.profiles[uid]||'Former reviewer'; }
+function download(lines,base){
+  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=base+'-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+}
+const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
 function csv(){
-  const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const lines=[['category','finding_id','question','refers_to','referenced_text','issue_type','note','reviewer','status','created','kind'].join(',')];
   filteredNotes().forEach(({n,replies})=>{ const q=QMAP[n.qid];
-    lines.push([CATS[q.ci].name,n.qid,q.q.question,targetLabel(n),n.targetText,n.type,n.text,name(n.uid),n.status||'open',new Date(n.created).toISOString(),'note'].map(cell).join(','));
-    replies.forEach(r=>lines.push([CATS[q.ci].name,n.qid,q.q.question,'','','',r.text,name(r.uid),'',new Date(r.created).toISOString(),'reply'].map(cell).join(',')));
+    lines.push([CATS[q.ci].name,n.qid,q.q.question,targetLabel(n),n.targetText,n.type,n.text,realName(n.uid),n.status||'open',new Date(n.created).toISOString(),'note'].map(cell).join(','));
+    replies.forEach(r=>lines.push([CATS[q.ci].name,n.qid,q.q.question,'','','',r.text,realName(r.uid),'',new Date(r.created).toISOString(),'reply'].map(cell).join(',')));
   });
-  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='definition-review-notes-'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+  download(lines,'definition-review-notes');
+}
+/* One row per finding: who marked it reviewed and how many notes it has, flagged or not. */
+function csvProgress(){
+  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes'].join(',')];
+  const tops=allNotes().filter(n=>!n.parent);
+  CATS.forEach(c=>c.questions.forEach(q=>{
+    const rv=S.reviews.filter(r=>r.qid===q.id).sort((a,b)=>String(a.reviewed_at).localeCompare(String(b.reviewed_at)));
+    const ns=tops.filter(n=>n.qid===q.id), open=ns.filter(n=>n.status!=='resolved').length;
+    const last=rv.length?rv[rv.length-1].reviewed_at:'';
+    lines.push([c.name,q.id,q.question,rv.map(r=>realName(r.user_id)).join('; '),rv.length,last,open,ns.length-open].map(cell).join(','));
+  }));
+  download(lines,'definition-review-progress');
 }
 
 /* ---------- admin: reviewer list ---------- */
@@ -381,6 +397,7 @@ document.addEventListener('click',async e=>{
     return deleteNote(t.dataset.key);
   }
   if(a==='csv') return csv();
+  if(a==='csvprog') return csvProgress();
   if(a==='rmrev'){
     if(!t.classList.contains('arm')){ t.classList.add('arm'); t.textContent='Click again to remove'; setTimeout(()=>{ if(t.isConnected){ t.classList.remove('arm'); t.textContent='Remove'; } },3500); return; }
     const r=await S.sb.from('reviewers').delete().eq('email',t.dataset.email); if(r.error) showBanner(r.error.message,'warn'); return loadReviewerList();
@@ -432,7 +449,7 @@ async function loadAll(){
   if(!S.isReviewer) return;
   const [n,r,p]=await Promise.all([
     S.sb.from('notes').select('*').order('created_at').limit(10000),
-    S.sb.from('reviews').select('user_id,qid').limit(20000),
+    S.sb.from('reviews').select('user_id,qid,reviewed_at').limit(20000),
     S.sb.from('profiles').select('id,display_name').limit(1000)]);
   const err=n.error||r.error||p.error;
   if(err){ showBanner('Notes could not be loaded: '+err.message,'warn'); return; }

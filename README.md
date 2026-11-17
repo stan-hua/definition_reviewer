@@ -75,7 +75,8 @@ python3 -m http.server 8000
 Open `http://localhost:8000/`. Opening `index.html` directly from disk will not work, because the browser blocks it from loading `findings.json`.
 
 ## Getting the notes out
-- **All notes → Download CSV** exports the notes matching the current filters.
+- **All notes → Download notes CSV** exports the notes and replies matching the current filters (set status to "Any status" to include resolved ones).
+- **All notes → Download review progress** exports one row per finding: who marked it reviewed, when, and its open and resolved note counts, including findings reviewed with no notes.
 - In Supabase, **Table Editor → notes** shows every row and can export CSV.
 
 ## Who can do what
