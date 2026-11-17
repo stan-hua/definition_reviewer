@@ -2,8 +2,8 @@
 // The anon key is meant to be public: the database's access rules (schema.sql) protect the notes.
 window.REVIEW_CONFIG = {
   // Supabase dashboard > Project Settings > API (or "Connect")
-  SUPABASE_URL: "https://YOUR-PROJECT.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR_ANON_KEY",
+  SUPABASE_URL: "https://ezmkpvpmcjkhippbigwa.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_5uRQXDJ1-eRfxOpfsqrvVA_WmMMa6x1",
 
   // Page title shown in the header and browser tab
   TITLE: "Abdominal CT findings · Definition review",
