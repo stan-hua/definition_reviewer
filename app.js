@@ -143,18 +143,20 @@ function fillDynamic(qid){
   card.querySelector('.foot').innerHTML=pocusHTML(qid)+f;
 }
 /* ---------- blinded POCUS rating (reviewers see only their own; admins see all) ---------- */
-const POCUS=[['unlikely','Unlikely'],['unsure','Unsure'],['likely','Likely']];
-const POCUS_Q='How likely is it that this finding can be predicted from abdominal point-of-care ultrasound (POCUS)?';
-function myPocus(qid){ const r=S.me&&S.pocus.find(x=>x.qid===qid&&x.user_id===S.me.id); return r?r.rating:''; }
+const POCUS=[[1,'Very unlikely'],[2,'Unlikely'],[3,'Unsure'],[4,'Likely'],[5,'Very likely']];
+const pocusLabel=v=>{ const p=POCUS.find(x=>x[0]===v); return p?p[1]:''; };
+const POCUS_Q='How likely is it that this finding is visible on abdominal point-of-care ultrasound (POCUS)?';
+function myPocus(qid){ const r=S.me&&S.pocus.find(x=>x.qid===qid&&x.user_id===S.me.id); return r?r.rating:0; }
 function pocusHTML(qid){
   if(!canSave()||!S.pocusOK) return '';
   const mine=myPocus(qid);
-  let h='<div class="pocus"><span class="pq" title="'+esc(POCUS_Q)+'">Predictable from abdominal POCUS?</span><span class="seg" role="group" aria-label="'+esc(POCUS_Q)+'">'+
+  let h='<div class="pocus"><span class="pq" title="'+esc(POCUS_Q)+'">Visible on abdominal POCUS?</span><span class="seg" role="group" aria-label="'+esc(POCUS_Q)+'">'+
     POCUS.map(([v,l])=>'<button data-act="pocus" data-q="'+esc(qid)+'" data-v="'+v+'"'+(mine===v?' class="on"':'')+' aria-pressed="'+(mine===v)+'">'+l+'</button>').join('')+'</span>';
   if(S.isAdmin){
     const all=S.pocus.filter(x=>x.qid===qid);
     const parts=POCUS.map(([v,l])=>{ const who=all.filter(x=>x.rating===v); return who.length?'<span title="'+esc(who.map(x=>realName(x.user_id)).join(', '))+'">'+who.length+' '+l.toLowerCase()+'</span>':''; }).filter(Boolean);
-    h+='<span class="hint">'+(parts.length?'All reviewers: '+parts.join(' · '):'No ratings yet')+' <span class="tag" title="Reviewers see only their own answer">admin only</span></span>';
+    const mean=all.length?(all.reduce((a,x)=>a+x.rating,0)/all.length).toFixed(1):'';
+    h+='<span class="hint">'+(parts.length?'All reviewers (mean '+mean+' / 5): '+parts.join(' · '):'No ratings yet')+' <span class="tag" title="Reviewers see only their own answer">admin only</span></span>';
   } else h+='<span class="hint">Blinded: other reviewers can’t see your answer</span>';
   return h+'</div>';
 }
@@ -316,7 +318,7 @@ function csv(){
 }
 /* One row per finding: who marked it reviewed and how many notes it has, flagged or not. */
 function csvProgress(){
-  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes','pocus_unlikely','pocus_unsure','pocus_likely','pocus_ratings'].join(',')];
+  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes','pocus_n','pocus_mean','pocus_1_very_unlikely','pocus_2_unlikely','pocus_3_unsure','pocus_4_likely','pocus_5_very_likely','pocus_ratings'].join(',')];
   const tops=allNotes().filter(n=>!n.parent);
   CATS.forEach(c=>c.questions.forEach(q=>{
     const rv=S.reviews.filter(r=>r.qid===q.id).sort((a,b)=>String(a.reviewed_at).localeCompare(String(b.reviewed_at)));
@@ -324,7 +326,8 @@ function csvProgress(){
     const last=rv.length?rv[rv.length-1].reviewed_at:'';
     const pr=S.pocus.filter(x=>x.qid===q.id), pc=v=>pr.filter(x=>x.rating===v).length;
     lines.push([c.name,q.id,q.question,rv.map(r=>realName(r.user_id)).join('; '),rv.length,last,open,ns.length-open,
-      pc('unlikely'),pc('unsure'),pc('likely'),pr.map(x=>realName(x.user_id)+': '+x.rating).join('; ')].map(cell).join(','));
+      pr.length,pr.length?(pr.reduce((a,x)=>a+x.rating,0)/pr.length).toFixed(2):'',pc(1),pc(2),pc(3),pc(4),pc(5),
+      pr.map(x=>realName(x.user_id)+': '+x.rating+' ('+pocusLabel(x.rating).toLowerCase()+')').join('; ')].map(cell).join(','));
   }));
   download(lines,'definition-review-progress');
 }
@@ -415,7 +418,7 @@ document.addEventListener('click',async e=>{
   if(a==='cancel'){ delete S.forms[t.dataset.q]; return fillForm(t.dataset.q); }
   if(a==='save') return submitForm(t.dataset.q);
   if(a==='review') return toggleReview(t.dataset.q);
-  if(a==='pocus') return setPocus(t.dataset.q,t.dataset.v);
+  if(a==='pocus') return setPocus(t.dataset.q,+t.dataset.v);
   if(a==='reply'){ const n=allNotes().find(x=>x.key===t.dataset.key); if(n) openForm(n.qid,{parent:n.key}); return; }
   if(a==='edit'){ const n=allNotes().find(x=>x.key===t.dataset.key); if(n) openForm(n.qid,{editKey:n.key,parent:n.parent||null,target:n.target||'overall',type:n.type||'',text:n.text||''}); return; }
   if(a==='status') return setStatus(t.dataset.key);

@@ -193,7 +193,7 @@ end $$;
 create table if not exists public.pocus_ratings (
   user_id    uuid not null default auth.uid() references auth.users on delete cascade,
   qid        text not null check (char_length(qid) <= 120),
-  rating     text not null check (rating in ('unlikely', 'unsure', 'likely')),
+  rating     smallint not null check (rating between 1 and 5),  -- 1 very unlikely, 2 unlikely, 3 unsure, 4 likely, 5 very likely
   updated_at timestamptz not null default now(),
   primary key (user_id, qid)
 );

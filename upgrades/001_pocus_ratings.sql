@@ -1,11 +1,11 @@
--- Blinded POCUS ratings: "How likely is it that this finding can be predicted
--- from abdominal point-of-care ultrasound?" (unlikely / unsure / likely)
+-- Blinded POCUS ratings: "How likely is it that this finding is visible on
+-- abdominal point-of-care ultrasound?" 1 = very unlikely ... 5 = very likely
 -- Each reviewer sees only their own answers; admins see everyone's.
 -- Safe to run more than once. Supabase dashboard: SQL Editor > New query > paste > Run.
 create table if not exists public.pocus_ratings (
   user_id    uuid not null default auth.uid() references auth.users on delete cascade,
   qid        text not null check (char_length(qid) <= 120),
-  rating     text not null check (rating in ('unlikely', 'unsure', 'likely')),
+  rating     smallint not null check (rating between 1 and 5),  -- 1 very unlikely, 2 unlikely, 3 unsure, 4 likely, 5 very likely
   updated_at timestamptz not null default now(),
   primary key (user_id, qid)
 );

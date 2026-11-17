@@ -75,7 +75,7 @@ python3 -m http.server 8000
 Open `http://localhost:8000/`. Opening `index.html` directly from disk will not work, because the browser blocks it from loading `findings.json`.
 
 ## Blinded POCUS rating
-Each finding asks reviewers "Predictable from abdominal POCUS?" (Unlikely / Unsure / Likely). Reviewers see only their own answers; admins see everyone's counts (names on hover) and get them in **Download review progress**. The database enforces the blinding. An answer can be changed but not cleared.
+Each finding asks reviewers "How likely is it that this finding is visible on abdominal point-of-care ultrasound?" on a 1–5 scale (1 Very unlikely, 2 Unlikely, 3 Unsure, 4 Likely, 5 Very likely). Reviewers see only their own answers; admins see everyone's counts and mean (names on hover) and get them in **Download review progress**. The database enforces the blinding. An answer can be changed but not cleared.
 
 Projects set up before this feature need `upgrades/001_pocus_ratings.sql` run once in the SQL Editor (it is already included in `schema.sql` for new projects).
 
@@ -91,7 +91,7 @@ Projects set up before this feature need `upgrades/001_pocus_ratings.sql` run on
 | Read notes | | | ✓ | ✓ |
 | Add notes, replies, reviewed marks | | | ✓ | ✓ |
 | Edit own notes | | | ✓ | ✓ |
-| Rate POCUS predictability (blinded) | | | ✓ | ✓ |
+| Rate POCUS visibility (blinded) | | | ✓ | ✓ |
 | See everyone's POCUS ratings | | | own only | ✓ |
 | Resolve or delete others' notes | | | | ✓ |
 | Manage the reviewer list | | | | ✓ |
