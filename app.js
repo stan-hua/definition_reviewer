@@ -140,13 +140,16 @@ function fillDynamic(qid){
     f+='<span>'+(rv.length?'Reviewed by '+rv.map(u=>esc(name(u))).join(', '):'Not yet reviewed')+'</span>';
     f+='<span>·</span><span>'+(tops.length?openN+' open, '+(tops.length-openN)+' resolved':'No notes')+'</span>';
   }
-  card.querySelector('.foot').innerHTML=pocusHTML(qid)+f;
+  const foot=card.querySelector('.foot'), ae=document.activeElement;
+  if(ae&&ae.classList.contains('pnote')&&foot.contains(ae)) return; // don't wipe a reason being typed
+  foot.innerHTML=pocusHTML(qid)+f;
 }
 /* ---------- blinded POCUS rating (reviewers see only their own; admins see all) ---------- */
 const POCUS=[[1,'Very unlikely'],[2,'Unlikely'],[3,'Unsure'],[4,'Likely'],[5,'Very likely']];
 const pocusLabel=v=>{ const p=POCUS.find(x=>x[0]===v); return p?p[1]:''; };
 const POCUS_Q='How likely is it that this finding is visible on abdominal point-of-care ultrasound (POCUS)?';
-function myPocus(qid){ const r=S.me&&S.pocus.find(x=>x.qid===qid&&x.user_id===S.me.id); return r?r.rating:0; }
+function myPocusRow(qid){ return S.me&&S.pocus.find(x=>x.qid===qid&&x.user_id===S.me.id)||null; }
+function myPocus(qid){ const r=myPocusRow(qid); return r?r.rating:0; }
 function pocusHTML(qid){
   if(!canSave()||!S.pocusOK) return '';
   const mine=myPocus(qid);
@@ -158,6 +161,12 @@ function pocusHTML(qid){
     const mean=all.length?(all.reduce((a,x)=>a+x.rating,0)/all.length).toFixed(1):'';
     h+='<span class="hint">'+(parts.length?'All reviewers (mean '+mean+' / 5): '+parts.join(' · '):'No ratings yet')+' <span class="tag" title="Reviewers see only their own answer">admin only</span></span>';
   } else h+='<span class="hint">Blinded: other reviewers can’t see your answer</span>';
+  const row=myPocusRow(qid);
+  if(row) h+='<div class="pnoterow"><input class="pnote" data-pq="'+esc(qid)+'" maxlength="1000" placeholder="Reason (optional), e.g. only if it’s severe" aria-label="Reason for your POCUS rating" value="'+esc(row.comment||'')+'"><span class="hint pstat" data-pq="'+esc(qid)+'"></span></div>';
+  if(S.isAdmin){
+    const why=S.pocus.filter(x=>x.qid===qid&&x.comment).sort((a,b)=>a.rating-b.rating);
+    if(why.length) h+='<ul class="preasons">'+why.map(x=>'<li><b>'+esc(realName(x.user_id))+'</b> · '+x.rating+' '+esc(pocusLabel(x.rating).toLowerCase())+': '+esc(x.comment)+'</li>').join('')+'</ul>';
+  }
   return h+'</div>';
 }
 async function setPocus(qid,v){
@@ -166,6 +175,14 @@ async function setPocus(qid,v){
   if(res.error) return showBanner('Could not save your POCUS rating: '+res.error.message,'warn');
   const i=S.pocus.findIndex(x=>x.qid===qid&&x.user_id===S.me.id); if(i>-1) S.pocus[i]=res.data; else S.pocus.push(res.data);
   refreshAll();
+}
+async function savePocusNote(qid,text){
+  const row=myPocusRow(qid); if(!row||(row.comment||'')===text) return;
+  const st=document.querySelector('.pstat[data-pq="'+CSS.escape(qid)+'"]'); if(st) st.textContent='Saving…';
+  const res=await S.sb.from('pocus_ratings').update({comment:text||null,updated_at:new Date().toISOString()}).eq('user_id',S.me.id).eq('qid',qid).select().single();
+  if(res.error){ if(st) st.textContent=''; return showBanner('Could not save your reason: '+res.error.message,'warn'); }
+  Object.assign(row,res.data); refreshAll();
+  const st2=document.querySelector('.pstat[data-pq="'+CSS.escape(qid)+'"]'); if(st2){ st2.textContent='Saved'; setTimeout(()=>{ if(st2.isConnected) st2.textContent=''; },2000); }
 }
 function noteHTML(n,all){
   const replies=all.filter(r=>r.parent===n.key);
@@ -318,7 +335,7 @@ function csv(){
 }
 /* One row per finding: who marked it reviewed and how many notes it has, flagged or not. */
 function csvProgress(){
-  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes','pocus_n','pocus_mean','pocus_1_very_unlikely','pocus_2_unlikely','pocus_3_unsure','pocus_4_likely','pocus_5_very_likely','pocus_ratings'].join(',')];
+  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes','pocus_n','pocus_mean','pocus_1_very_unlikely','pocus_2_unlikely','pocus_3_unsure','pocus_4_likely','pocus_5_very_likely','pocus_ratings','pocus_reasons'].join(',')];
   const tops=allNotes().filter(n=>!n.parent);
   CATS.forEach(c=>c.questions.forEach(q=>{
     const rv=S.reviews.filter(r=>r.qid===q.id).sort((a,b)=>String(a.reviewed_at).localeCompare(String(b.reviewed_at)));
@@ -327,7 +344,8 @@ function csvProgress(){
     const pr=S.pocus.filter(x=>x.qid===q.id), pc=v=>pr.filter(x=>x.rating===v).length;
     lines.push([c.name,q.id,q.question,rv.map(r=>realName(r.user_id)).join('; '),rv.length,last,open,ns.length-open,
       pr.length,pr.length?(pr.reduce((a,x)=>a+x.rating,0)/pr.length).toFixed(2):'',pc(1),pc(2),pc(3),pc(4),pc(5),
-      pr.map(x=>realName(x.user_id)+': '+x.rating+' ('+pocusLabel(x.rating).toLowerCase()+')').join('; ')].map(cell).join(','));
+      pr.map(x=>realName(x.user_id)+': '+x.rating+' ('+pocusLabel(x.rating).toLowerCase()+')').join('; '),
+      pr.filter(x=>x.comment).map(x=>realName(x.user_id)+': '+x.comment).join(' | ')].map(cell).join(','));
   }));
   download(lines,'definition-review-progress');
 }
@@ -463,11 +481,13 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='onlyNotes'||t.id==='onlyUnrev'){ if(t.id==='onlyNotes') S.onlyNotes=t.checked; else S.onlyUnreviewed=t.checked; $('#nav').classList.toggle('searching',filtering()); updateNav(); if(S.view!=='browse') setView('browse'); else renderBrowse(); return; }
+  if(t.classList&&t.classList.contains('pnote')) return savePocusNote(t.dataset.pq,t.value.trim());
   if(t.dataset.nf){ S.fNotes[t.dataset.nf]=t.value; renderNotes(); return; }
   const form=t.closest&&t.closest('.form'); if(form&&t.dataset.f){ const f=S.forms[form.dataset.q]; if(f){ f[t.dataset.f]=t.value; refreshSaveBtn(form.dataset.q); } }
 });
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ const form=e.target.closest&&e.target.closest('.form'); if(form) submitForm(form.dataset.q); }
+  if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('pnote')){ e.preventDefault(); e.target.blur(); }
   if(e.key==='Escape'&&$('#modal').innerHTML&&!$('#nameform')) closeModal();
 });
 window.addEventListener('hashchange',route);
@@ -491,7 +511,7 @@ async function loadAll(){
     fetchAll('notes','*',['created_at','id']),
     fetchAll('reviews','user_id,qid,reviewed_at',['qid','user_id']),
     fetchAll('profiles','id,display_name',['id']),
-    fetchAll('pocus_ratings','user_id,qid,rating,updated_at',['qid','user_id'])]);
+    fetchAll('pocus_ratings','user_id,qid,rating,comment,updated_at',['qid','user_id'])]);
   const err=n.error||r.error||p.error;
   if(err){ showBanner('Notes could not be loaded: '+err.message,'warn'); return; }
   S.notesRaw=n.data||[]; S.reviews=r.data||[]; S.profiles={}; (p.data||[]).forEach(x=>S.profiles[x.id]=x.display_name); S.cache=null;
