@@ -304,7 +304,7 @@ async function loadReviewerList(){
 /* ---------- auth UI ---------- */
 function methods(){ return CFG.SIGN_IN_METHODS||['google']; }
 function showSignIn(msg){
-  const m=methods(); let h='<div class="modal-bg" data-act="closemodal"><div class="modal" role="dialog" aria-modal="true"><h2>Sign in to review</h2><p>Use the email address the project owner added to the reviewer list.</p>';
+  const m=methods(); let h='<div class="modal-bg" data-act="closemodal"><div class="modal" role="dialog" aria-modal="true"><img src="logo.png" alt="" width="56" height="56" style="display:block;margin-bottom:10px"><h2>Sign in to review</h2><p>Use the email address the project owner added to the reviewer list.</p>';
   if(m.includes('google')) h+='<button class="btn wide" data-act="google">'+GOOGLE+' Continue with Google</button>';
   if(m.includes('google')&&m.includes('email')) h+='<div class="or">or</div>';
   if(m.includes('email')) h+='<form id="emailform"><input type="email" id="email" placeholder="name@berkeley.edu" required autocomplete="email"><button class="btn pri wide" type="submit">Email me a sign-in link</button></form>';
