@@ -187,16 +187,18 @@ do $$ begin
 end $$;
 
 -- ---------------------------------------------------------------
--- Blinded POCUS ratings (also in upgrades/001_pocus_ratings.sql).
+-- Blinded POCUS ratings (also in upgrades/001 and 002).
 -- Each reviewer sees only their own answers; admins see everyone's.
 -- ---------------------------------------------------------------
 create table if not exists public.pocus_ratings (
   user_id    uuid not null default auth.uid() references auth.users on delete cascade,
   qid        text not null check (char_length(qid) <= 120),
+  question   text not null default 'visible' constraint pocus_ratings_question_check
+               check (question in ('visible', 'inferrable')),  -- which POCUS question (from FAST exam)
   rating     smallint not null check (rating between 1 and 5),  -- 1 very unlikely, 2 unlikely, 3 unsure, 4 likely, 5 very likely
   comment    text check (char_length(comment) <= 1000),          -- optional reason, e.g. "only if severe"; blinded like the rating
   updated_at timestamptz not null default now(),
-  primary key (user_id, qid)
+  primary key (user_id, qid, question)
 );
 
 alter table public.pocus_ratings enable row level security;
