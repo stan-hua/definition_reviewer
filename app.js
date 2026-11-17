@@ -162,7 +162,9 @@ function pocusHTML(qid){
     h+='<span class="hint">'+(parts.length?'All reviewers (mean '+mean+' / 5): '+parts.join(' · '):'No ratings yet')+' <span class="tag" title="Reviewers see only their own answer">admin only</span></span>';
   } else h+='<span class="hint">Blinded: other reviewers can’t see your answer</span>';
   const row=myPocusRow(qid);
-  if(row) h+='<div class="pnoterow"><input class="pnote" data-pq="'+esc(qid)+'" maxlength="1000" placeholder="Reason (optional), e.g. only if it’s severe" aria-label="Reason for your POCUS rating" value="'+esc(row.comment||'')+'"><span class="hint pstat" data-pq="'+esc(qid)+'"></span></div>';
+  h+='<div class="pnoterow"><input class="pnote" data-pq="'+esc(qid)+'" maxlength="1000" aria-label="Reason for your POCUS rating"'+
+     (row?' placeholder="Reason (optional), e.g. only if it’s severe" value="'+esc(row.comment||'')+'"':' placeholder="Choose a rating above, then add a reason (optional)" disabled')+
+     '><span class="hint pstat" data-pq="'+esc(qid)+'"></span></div>';
   if(S.isAdmin){
     const why=S.pocus.filter(x=>x.qid===qid&&x.comment).sort((a,b)=>a.rating-b.rating);
     if(why.length) h+='<ul class="preasons">'+why.map(x=>'<li><b>'+esc(realName(x.user_id))+'</b> · '+x.rating+' '+esc(pocusLabel(x.rating).toLowerCase())+': '+esc(x.comment)+'</li>').join('')+'</ul>';
