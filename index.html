@@ -108,6 +108,13 @@ main{overflow:auto;padding:48px 64px 140px}
 .revbtn:hover{background:var(--hover)}
 .revbtn.on{color:var(--ink)}
 .revbtn.on::before{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--bg)}
+.pocus{display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%;padding:2px 0 4px}
+.pocus .pq{color:var(--ink2)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:1px 10px;font-size:13px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button:hover{background:var(--hover)}
+.seg button.on{background:var(--accent);color:#fff}
 .notes:empty{display:none}
 .notes{margin:6px 0 4px;padding:4px 14px 4px 14px;background:var(--side);border-radius:4px}
 .note{padding:10px 0;border-top:1px solid var(--line)}

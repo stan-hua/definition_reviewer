@@ -10,7 +10,7 @@ const TYPES = CFG.ISSUE_TYPES || ["Imprecise","Unclear or ambiguous","Overlaps a
 let DATA, CATS, QMAP = {}, TOTAL = 0, HASH2Q = {}, CATHASH = [];
 
 const S = {sb:null, me:null, isReviewer:false, isAdmin:false, profile:null, ready:false,
-  notesRaw:[], reviews:[], profiles:{}, reviewersList:[], cache:null,
+  notesRaw:[], reviews:[], pocus:[], pocusOK:false, profiles:{}, reviewersList:[], cache:null,
   view:'browse', cat:0, q:'', onlyNotes:false, onlyUnreviewed:false, forms:{},
   fNotes:{status:'open',type:'',who:'',cat:''}, busy:false};
 
@@ -140,7 +140,30 @@ function fillDynamic(qid){
     f+='<span>'+(rv.length?'Reviewed by '+rv.map(u=>esc(name(u))).join(', '):'Not yet reviewed')+'</span>';
     f+='<span>·</span><span>'+(tops.length?openN+' open, '+(tops.length-openN)+' resolved':'No notes')+'</span>';
   }
-  card.querySelector('.foot').innerHTML=f;
+  card.querySelector('.foot').innerHTML=pocusHTML(qid)+f;
+}
+/* ---------- blinded POCUS rating (reviewers see only their own; admins see all) ---------- */
+const POCUS=[['unlikely','Unlikely'],['unsure','Unsure'],['likely','Likely']];
+const POCUS_Q='How likely is it that this finding can be predicted from abdominal point-of-care ultrasound (POCUS)?';
+function myPocus(qid){ const r=S.me&&S.pocus.find(x=>x.qid===qid&&x.user_id===S.me.id); return r?r.rating:''; }
+function pocusHTML(qid){
+  if(!canSave()||!S.pocusOK) return '';
+  const mine=myPocus(qid);
+  let h='<div class="pocus"><span class="pq" title="'+esc(POCUS_Q)+'">Predictable from abdominal POCUS?</span><span class="seg" role="group" aria-label="'+esc(POCUS_Q)+'">'+
+    POCUS.map(([v,l])=>'<button data-act="pocus" data-q="'+esc(qid)+'" data-v="'+v+'"'+(mine===v?' class="on"':'')+' aria-pressed="'+(mine===v)+'">'+l+'</button>').join('')+'</span>';
+  if(S.isAdmin){
+    const all=S.pocus.filter(x=>x.qid===qid);
+    const parts=POCUS.map(([v,l])=>{ const who=all.filter(x=>x.rating===v); return who.length?'<span title="'+esc(who.map(x=>realName(x.user_id)).join(', '))+'">'+who.length+' '+l.toLowerCase()+'</span>':''; }).filter(Boolean);
+    h+='<span class="hint">'+(parts.length?'All reviewers: '+parts.join(' · '):'No ratings yet')+' <span class="tag" title="Reviewers see only their own answer">admin only</span></span>';
+  } else h+='<span class="hint">Blinded: other reviewers can’t see your answer</span>';
+  return h+'</div>';
+}
+async function setPocus(qid,v){
+  if(!canSave()||myPocus(qid)===v) return;
+  const res=await S.sb.from('pocus_ratings').upsert({user_id:S.me.id,qid,rating:v,updated_at:new Date().toISOString()},{onConflict:'user_id,qid'}).select().single();
+  if(res.error) return showBanner('Could not save your POCUS rating: '+res.error.message,'warn');
+  const i=S.pocus.findIndex(x=>x.qid===qid&&x.user_id===S.me.id); if(i>-1) S.pocus[i]=res.data; else S.pocus.push(res.data);
+  refreshAll();
 }
 function noteHTML(n,all){
   const replies=all.filter(r=>r.parent===n.key);
@@ -254,7 +277,8 @@ function renderNotes(){
   const uids=Object.keys(S.profiles);
   h+='<div class="stats"><div class="stat"><b>'+open+'</b><span>open notes</span></div><div class="stat"><b>'+(tops.length-open)+'</b><span>resolved</span></div>'+
      '<div class="stat"><b>'+flaggedQ.size+'</b><span>findings with open notes</span></div><div class="stat"><b>'+reviewedAny.size+' / '+TOTAL+'</b><span>findings reviewed by someone</span></div>'+
-     '<div class="stat"><b>'+uids.length+'</b><span>reviewers signed in so far</span></div></div>';
+     '<div class="stat"><b>'+uids.length+'</b><span>reviewers signed in so far</span></div>'+
+     (S.pocusOK?'<div class="stat"><b>'+new Set(S.pocus.filter(x=>QMAP[x.qid]&&(S.isAdmin||x.user_id===S.me.id)).map(x=>x.qid)).size+' / '+TOTAL+'</b><span>'+(S.isAdmin?'findings with a POCUS rating':'findings you rated for POCUS')+'</span></div>':'')+'</div>';
   const f=S.fNotes;
   h+='<div class="tools"><select data-nf="status"><option value="">Any status</option><option value="open"'+(f.status==='open'?' selected':'')+'>Open</option><option value="resolved"'+(f.status==='resolved'?' selected':'')+'>Resolved</option></select>'+
      '<select data-nf="type"><option value="">Any issue type</option>'+TYPES.map(t=>'<option'+(f.type===t?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select>'+
@@ -292,13 +316,15 @@ function csv(){
 }
 /* One row per finding: who marked it reviewed and how many notes it has, flagged or not. */
 function csvProgress(){
-  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes'].join(',')];
+  const lines=[['category','finding_id','question','reviewed_by','times_reviewed','last_reviewed','open_notes','resolved_notes','pocus_unlikely','pocus_unsure','pocus_likely','pocus_ratings'].join(',')];
   const tops=allNotes().filter(n=>!n.parent);
   CATS.forEach(c=>c.questions.forEach(q=>{
     const rv=S.reviews.filter(r=>r.qid===q.id).sort((a,b)=>String(a.reviewed_at).localeCompare(String(b.reviewed_at)));
     const ns=tops.filter(n=>n.qid===q.id), open=ns.filter(n=>n.status!=='resolved').length;
     const last=rv.length?rv[rv.length-1].reviewed_at:'';
-    lines.push([c.name,q.id,q.question,rv.map(r=>realName(r.user_id)).join('; '),rv.length,last,open,ns.length-open].map(cell).join(','));
+    const pr=S.pocus.filter(x=>x.qid===q.id), pc=v=>pr.filter(x=>x.rating===v).length;
+    lines.push([c.name,q.id,q.question,rv.map(r=>realName(r.user_id)).join('; '),rv.length,last,open,ns.length-open,
+      pc('unlikely'),pc('unsure'),pc('likely'),pr.map(x=>realName(x.user_id)+': '+x.rating).join('; ')].map(cell).join(','));
   }));
   download(lines,'definition-review-progress');
 }
@@ -389,6 +415,7 @@ document.addEventListener('click',async e=>{
   if(a==='cancel'){ delete S.forms[t.dataset.q]; return fillForm(t.dataset.q); }
   if(a==='save') return submitForm(t.dataset.q);
   if(a==='review') return toggleReview(t.dataset.q);
+  if(a==='pocus') return setPocus(t.dataset.q,t.dataset.v);
   if(a==='reply'){ const n=allNotes().find(x=>x.key===t.dataset.key); if(n) openForm(n.qid,{parent:n.key}); return; }
   if(a==='edit'){ const n=allNotes().find(x=>x.key===t.dataset.key); if(n) openForm(n.qid,{editKey:n.key,parent:n.parent||null,target:n.target||'overall',type:n.type||'',text:n.text||''}); return; }
   if(a==='status') return setStatus(t.dataset.key);
@@ -445,15 +472,28 @@ window.addEventListener('hashchange',route);
 /* ---------- data loading and live updates ---------- */
 let reloadTimer=null, channel=null;
 function scheduleReload(){ clearTimeout(reloadTimer); reloadTimer=setTimeout(loadAll,250); }
+// Supabase returns at most 1000 rows per request, so read each table in pages.
+async function fetchAll(table,cols,order){
+  const out=[], step=1000;
+  for(let from=0;;from+=step){
+    let q=S.sb.from(table).select(cols); order.forEach(c=>{ q=q.order(c); });
+    const r=await q.range(from,from+step-1);
+    if(r.error) return {error:r.error, data:[]};
+    out.push(...r.data); if(r.data.length<step) return {data:out};
+  }
+}
 async function loadAll(){
   if(!S.isReviewer) return;
-  const [n,r,p]=await Promise.all([
-    S.sb.from('notes').select('*').order('created_at').limit(10000),
-    S.sb.from('reviews').select('user_id,qid,reviewed_at').limit(20000),
-    S.sb.from('profiles').select('id,display_name').limit(1000)]);
+  const [n,r,p,pc]=await Promise.all([
+    fetchAll('notes','*',['created_at','id']),
+    fetchAll('reviews','user_id,qid,reviewed_at',['qid','user_id']),
+    fetchAll('profiles','id,display_name',['id']),
+    fetchAll('pocus_ratings','user_id,qid,rating,updated_at',['qid','user_id'])]);
   const err=n.error||r.error||p.error;
   if(err){ showBanner('Notes could not be loaded: '+err.message,'warn'); return; }
   S.notesRaw=n.data||[]; S.reviews=r.data||[]; S.profiles={}; (p.data||[]).forEach(x=>S.profiles[x.id]=x.display_name); S.cache=null;
+  S.pocusOK=!pc.error; S.pocus=pc.data||[];
+  if(pc.error&&S.isAdmin) showBanner('POCUS ratings are off until you run upgrades/001_pocus_ratings.sql in the Supabase SQL Editor ('+pc.error.message+').','warn');
   refreshAll();
 }
 function subscribe(){
@@ -462,6 +502,7 @@ function subscribe(){
     .on('postgres_changes',{event:'*',schema:'public',table:'notes'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'reviews'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'pocus_ratings'},scheduleReload)
     .subscribe(status=>{ if(status==='CHANNEL_ERROR'||status==='TIMED_OUT') showBanner('Live updates paused. New notes from others will appear when you return to this tab.','warn'); });
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&S.isReviewer) scheduleReload(); });
@@ -471,7 +512,7 @@ async function handleSession(session){
   const uid=session?session.user.id:null;
   if(uid===currentUid) return; currentUid=uid;
   if(!session){
-    S.me=null; S.isReviewer=false; S.isAdmin=false; S.profile=null; S.notesRaw=[]; S.reviews=[]; S.profiles={}; S.cache=null;
+    S.me=null; S.isReviewer=false; S.isAdmin=false; S.profile=null; S.notesRaw=[]; S.reviews=[]; S.pocus=[]; S.pocusOK=false; S.profiles={}; S.cache=null;
     if(channel){ S.sb.removeChannel(channel); channel=null; }
     showBanner('You can browse the definitions. Sign in to see and add notes.','info',{act:'signin',label:'Sign in'});
     refreshAll(); return;
