@@ -46,11 +46,17 @@ function targetsOf(q){
   if(q.exclude_terms.length) t.push({k:'exclude_terms',l:'Exclude terms (whole list)',x:q.exclude_terms.join('; ')});
   q.exclude_terms.forEach((x,i)=>t.push({k:'exc'+i,l:'Exclude term',x}));
   if(q.severity_scale) t.push({k:'severity',l:'Severity scale',x:q.severity_scale});
+  if(q.answer_rule) t.push({k:'answer_rule',l:'Answer rule',x:q.answer_rule});
   t.push({k:'overall',l:'The finding as a whole',x:''});
   return t;
 }
+// Notes point at parts by position (e.g. "def1"). After the definitions are rebuilt, the part at that
+// position may be gone or reworded; the note's own target_text keeps the wording it was written about.
+function stale(n,t){ return !!(t&&n.target!=='overall'&&n.targetText&&t.x&&n.targetText!==t.x); }
 function targetLabel(n){ const q=QMAP[n.qid]&&QMAP[n.qid].q; if(!q) return n.target;
-  const t=targetsOf(q).find(t=>t.k===n.target); return t?t.l:(n.target||''); }
+  const t=targetsOf(q).find(t=>t.k===n.target);
+  if(!t) return /^var\d/.test(n.target)?'Question variant (since removed)':/^def\d/.test(n.target)?'Definition sentence (since removed)':/^(inc|exc)\d/.test(n.target)?'Term (since removed)':(n.target||'');
+  return stale(n,t)?t.l+' · wording since changed':t.l; }
 
 /* ---------- nav ---------- */
 function renderNav(){
@@ -64,7 +70,7 @@ function renderNav(){
 function filtering(){ return !!S.q.trim()||S.onlyNotes||S.onlyUnreviewed; }
 function matches(q){
   const ql=S.q.trim().toLowerCase();
-  if(ql){ const hay=(q.id+' '+q.question+' '+q.variants.join(' ')+' '+q.definition+' '+q.include_terms.join(' ')+' '+q.exclude_terms.join(' ')).toLowerCase();
+  if(ql){ const hay=(q.id+' '+q.question+' '+q.variants.join(' ')+' '+q.definition+' '+q.include_terms.join(' ')+' '+q.exclude_terms.join(' ')+' '+(q.severity_scale||'')+' '+(q.answer_rule||'')).toLowerCase();
     if(!ql.split(/\s+/).every(w=>hay.includes(w))) return false; }
   if(S.onlyNotes && !notesFor(q.id).length) return false;
   if(S.onlyUnreviewed && iReviewed(q.id)) return false;
@@ -105,6 +111,7 @@ function cardHTML(q){
   if(q.include_terms.length) h+='<div class="sent" data-t="include_terms"><div class="lab Includes">Include terms</div><div class="chips">'+q.include_terms.map((x,i)=>'<button class="chip" data-act="add" data-q="'+id+'" data-t="inc'+i+'" title="Flag this term">'+esc(x)+'</button>').join('')+'</div>'+flagBtn(q.id,'include_terms','Flag the include-term list')+'</div>';
   if(q.exclude_terms.length) h+='<div class="sent" data-t="exclude_terms"><div class="lab Excludes">Exclude terms</div><div class="chips">'+q.exclude_terms.map((x,i)=>'<button class="chip x" data-act="add" data-q="'+id+'" data-t="exc'+i+'" title="Flag this term">'+esc(x)+'</button>').join('')+'</div>'+flagBtn(q.id,'exclude_terms','Flag the exclude-term list')+'</div>';
   if(q.severity_scale) h+='<div class="sent" data-t="severity"><div class="lab">Severity scale</div><div class="stext">'+esc(q.severity_scale)+'</div>'+flagBtn(q.id,'severity','Flag the severity scale')+'</div>';
+  if(q.answer_rule) h+='<div class="sent" data-t="answer_rule"><div class="lab">Answer rule</div><div class="stext">'+esc(q.answer_rule)+'</div>'+flagBtn(q.id,'answer_rule','Flag the answer rule')+'</div>';
   h+='</div><div class="formslot" data-q="'+id+'"></div><div class="notes" data-q="'+id+'"></div><div class="foot" data-q="'+id+'"></div></section>';
   return h;
 }
@@ -129,7 +136,8 @@ function fillDynamic(qid){
   const card=document.querySelector('.card[data-q="'+CSS.escape(qid)+'"]'); if(!card) return;
   const ns=notesFor(qid);
   const tops=ns.filter(n=>!n.parent||!ns.some(p=>p.key===n.parent));
-  const flagged={}; ns.forEach(n=>{ if(!n.parent&&n.status!=='resolved') flagged[n.target]=1; });
+  const tg={}; targetsOf(QMAP[qid].q).forEach(t=>{ tg[t.k]=t; });
+  const flagged={}; ns.forEach(n=>{ if(!n.parent&&n.status!=='resolved'&&tg[n.target]&&!stale(n,tg[n.target])) flagged[n.target]=1; });
   card.querySelectorAll('.sent,.chip').forEach(s=>{ s.classList.toggle('has',!!flagged[s.dataset.t]); s.classList.remove('active'); });
   const fo=S.forms[qid]; if(fo&&!fo.parent){ const el=card.querySelector('[data-t="'+fo.target+'"]:not(.flag)'); if(el) el.classList.add('active'); }
   card.querySelector('.notes').innerHTML=tops.map(n=>noteHTML(n,ns)).join('');

@@ -72,6 +72,7 @@ def main():
                 "include_terms": q.get("include_terms") or [],
                 "exclude_terms": q.get("exclude_terms") or [],
                 "severity_scale": q.get("severity_scale"),
+                "answer_rule": q.get("answer_rule"),
             })
         # Show the compartment-general question ("Is there any abnormality of ...?") first.
         qs.sort(key=lambda q: not is_general(q))

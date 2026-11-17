@@ -1,0 +1,3 @@
+# Source YAML is kept outside the repo; build findings.json from it with build_findings.py
+*.yaml
+*.yml
