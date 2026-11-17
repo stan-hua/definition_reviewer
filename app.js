@@ -163,7 +163,7 @@ function pocusHTML(qid){
   } else h+='<span class="hint">Blinded: other reviewers can’t see your answer</span>';
   const row=myPocusRow(qid);
   h+='<div class="pnoterow"><input class="pnote" data-pq="'+esc(qid)+'" maxlength="1000" aria-label="Reason for your POCUS rating"'+
-     (row?' placeholder="Reason (optional), e.g. only if it’s severe" value="'+esc(row.comment||'')+'"':' placeholder="Choose a rating above, then add a reason (optional)" disabled')+
+     ' placeholder="Optional reason (e.g., only if it is severe)"'+(row?' value="'+esc(row.comment||'')+'"':' disabled title="Choose a rating first"')+
      '><span class="hint pstat" data-pq="'+esc(qid)+'"></span></div>';
   if(S.isAdmin){
     const why=S.pocus.filter(x=>x.qid===qid&&x.comment).sort((a,b)=>a.rating-b.rating);
