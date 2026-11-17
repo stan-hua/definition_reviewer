@@ -6,8 +6,9 @@
 <title>Findings definition review</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
+<script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <style>
-html{color-scheme:light}
+:root{color-scheme:light}
 :root{
   --bg:#ffffff; --side:#f7f7f5; --panel:#ffffff; --ink:#37352f; --ink2:rgba(55,53,47,.75); --ink3:rgba(55,53,47,.5);
   --line:rgba(55,53,47,.09); --line2:rgba(55,53,47,.06); --hover:rgba(55,53,47,.06); --sel:rgba(55,53,47,.08);
@@ -18,6 +19,24 @@ html{color-scheme:light}
   --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji";
   --mono:"SFMono-Regular",Menlo,Consolas,"PT Mono","Liberation Mono",Courier,monospace;
 }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#191919; --side:#202020; --panel:#252525; --ink:rgba(255,255,255,.87); --ink2:rgba(255,255,255,.7); --ink3:rgba(255,255,255,.46);
+  --line:rgba(255,255,255,.1); --line2:rgba(255,255,255,.06); --hover:rgba(255,255,255,.06); --sel:rgba(255,255,255,.1);
+  --accent:#3b82d6; --accent-soft:rgba(82,156,202,.2);
+  --inc:#4dab9a; --inc-soft:rgba(77,171,154,.18); --exc:#e57373; --exc-soft:rgba(229,115,115,.18);
+  --warn:#d9a441; --warn-soft:rgba(217,164,65,.2); --done:#9b9a97; --done-soft:rgba(155,154,151,.18); --purple:#b38ad6; --purple-soft:rgba(179,138,214,.18);
+  --focus:rgba(82,156,202,.5); color-scheme:dark;
+} }
+:root[data-theme="dark"]{
+  --bg:#191919; --side:#202020; --panel:#252525; --ink:rgba(255,255,255,.87); --ink2:rgba(255,255,255,.7); --ink3:rgba(255,255,255,.46);
+  --line:rgba(255,255,255,.1); --line2:rgba(255,255,255,.06); --hover:rgba(255,255,255,.06); --sel:rgba(255,255,255,.1);
+  --accent:#3b82d6; --accent-soft:rgba(82,156,202,.2);
+  --inc:#4dab9a; --inc-soft:rgba(77,171,154,.18); --exc:#e57373; --exc-soft:rgba(229,115,115,.18);
+  --warn:#d9a441; --warn-soft:rgba(217,164,65,.2); --done:#9b9a97; --done-soft:rgba(155,154,151,.18); --purple:#b38ad6; --purple-soft:rgba(179,138,214,.18);
+  --focus:rgba(82,156,202,.5); color-scheme:dark;
+}
+.themebtn{border:0;background:transparent;color:var(--ink3);padding:5px;border-radius:4px;line-height:0}
+.themebtn:hover{background:var(--hover);color:var(--ink2)}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
@@ -226,7 +245,7 @@ main{overflow:auto;padding:48px 64px 140px}
 .admin li span.e{flex:1}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
-<script src="config.js?v=8"></script>
+<script src="config.js?v=9"></script>
 </head>
 <body>
 <div class="app">
@@ -239,6 +258,7 @@ main{overflow:auto;padding:48px 64px 140px}
       <button id="tab-browse" class="on">Browse</button>
       <button id="tab-notes">All notes <span class="cnt" id="notecount"></span></button>
     </div>
+    <button class="themebtn" id="themebtn" data-act="theme"></button>
     <div class="who" id="who"></div>
   </header>
   <div class="banner" id="banner"></div>
@@ -248,6 +268,6 @@ main{overflow:auto;padding:48px 64px 140px}
   </div>
 </div>
 <div id="modal"></div>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

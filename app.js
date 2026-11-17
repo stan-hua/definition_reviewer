@@ -402,6 +402,18 @@ function showNamePrompt(){
 function closeModal(){ $('#modal').innerHTML=''; }
 function redirectUrl(){ return location.origin+location.pathname; }
 
+/* ---------- light / dark theme ---------- */
+const SUN='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85"/></svg>';
+const MOON='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M13.5 9.6A5.6 5.6 0 0 1 6.4 2.5a5.6 5.6 0 1 0 7.1 7.1z"/></svg>';
+const darkMQ=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+function theme(){ return document.documentElement.getAttribute('data-theme')||(darkMQ&&darkMQ.matches?'dark':'light'); }
+function paintThemeBtn(){ const b=$('#themebtn'); if(!b) return; const d=theme()==='dark';
+  b.innerHTML=d?SUN:MOON; const l=d?'Switch to light mode':'Switch to dark mode'; b.title=l; b.setAttribute('aria-label',l); }
+function toggleTheme(){ const t=theme()==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',t);
+  try{ localStorage.setItem('theme',t); }catch(e){} paintThemeBtn(); }
+if(darkMQ&&darkMQ.addEventListener) darkMQ.addEventListener('change',paintThemeBtn);
+paintThemeBtn();
+
 /* ---------- view plumbing ---------- */
 function showBanner(msg,kind,action){ const b=$('#banner'); if(!msg){ b.className='banner'; b.innerHTML=''; return; }
   b.className='banner show '+(kind||'info'); b.innerHTML=esc(msg)+(action?' <button class="btn" data-act="'+action.act+'">'+esc(action.label)+'</button>':''); }
@@ -447,6 +459,7 @@ document.addEventListener('click',async e=>{
     if(location.hash.slice(1)===CATHASH[ci]) setView('browse'); else location.hash=CATHASH[ci]; $('#body').classList.remove('navopen'); return; }
   if(t.matches('.qlist a')){ e.preventDefault(); const id=t.dataset.q; if(location.hash.slice(1)===qHash(id)) goQuestion(id); else location.hash=qHash(id); return; }
   const a=t.dataset.act;
+  if(a==='theme') return toggleTheme();
   if(a==='signin') return showSignIn();
   if(a==='signout'){ await S.sb.auth.signOut(); return; }
   if(a==='google'){ const r=await S.sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:redirectUrl()}}); if(r.error) $('#authmsg').textContent=r.error.message; return; }
