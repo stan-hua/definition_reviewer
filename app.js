@@ -162,12 +162,6 @@ function pocusHTML(qid){
     const row=myPocusRow(qid,pq.k), mine=row?row.rating:0, a='data-q="'+esc(qid)+'" data-k="'+pq.k+'"';
     h+='<div class="pocus"><span class="pq" title="'+esc(pq.full)+'">'+esc(pq.short)+'</span><span class="seg" role="group" aria-label="'+esc(pq.full)+'">'+
       POCUS.map(([v,l])=>'<button data-act="pocus" '+a+' data-v="'+v+'"'+(mine===v?' class="on"':'')+' aria-pressed="'+(mine===v)+'">'+l+'</button>').join('')+'</span>';
-    if(S.isAdmin){
-      const all=pocusRows(qid,pq.k);
-      const parts=POCUS.map(([v,l])=>{ const who=all.filter(x=>x.rating===v); return who.length?'<span title="'+esc(who.map(x=>realName(x.user_id)).join(', '))+'">'+who.length+' '+l.toLowerCase()+'</span>':''; }).filter(Boolean);
-      const mean=all.length?(all.reduce((t,x)=>t+x.rating,0)/all.length).toFixed(1):'';
-      h+='<span class="hint">'+(parts.length?'All reviewers (mean '+mean+' / 5): '+parts.join(' · '):'No ratings yet')+'</span>';
-    }
     h+='<div class="pnoterow"><input class="pnote" '+a+' maxlength="1000" aria-label="Reason for your answer: '+esc(pq.short)+'" placeholder="Optional reason (e.g., only if it is severe)"'+
        (row?' value="'+esc(row.comment||'')+'"':' disabled title="Choose a rating first"')+'><span class="hint pstat" '+a+'></span></div>';
     if(S.isAdmin){
